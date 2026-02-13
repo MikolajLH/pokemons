@@ -1,28 +1,21 @@
 import PokemonListItem from "@/src/components/PokemonListItem";
-import { ScrollView, Text, View } from "react-native";
-
-const bulbasaur = {
-  id: 1,
-  name: "bulbasaur",
-  sprite_uri:
-    "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/1.png",
-};
-
-const caterpie = {
-  id: 10,
-  name: "caterpie",
-  sprite_uri:
-    "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/10.png",
-};
+import { usePokemons } from "@/src/hooks/usePokemons";
+import { FlatList, Text, View } from "react-native";
 
 const Index = () => {
+  const { data, hasNextPage, fetchNextPage } = usePokemons();
+  const allPokemons = data?.pages?.flatMap((page) => page.pokemons) || [];
   return (
     <View>
       <Text>Pokemons list</Text>
-      <ScrollView>
-        <PokemonListItem pokemon={bulbasaur} />
-        <PokemonListItem pokemon={caterpie} />
-      </ScrollView>
+      <FlatList
+        data={allPokemons}
+        keyExtractor={(_, i) => i.toString()}
+        renderItem={({ item }) => <PokemonListItem pokemon={item} />}
+        onEndReached={() => {
+          if (hasNextPage) fetchNextPage();
+        }}
+      />
     </View>
   );
 };
