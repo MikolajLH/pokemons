@@ -1,17 +1,40 @@
 import PokemonListItem from "@/src/components/PokemonListItem";
 import { usePokemons } from "@/src/hooks/usePokemons";
-import { FlatList, Text, View } from "react-native";
+import { useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
+import { Button, FlatList, Text, TouchableOpacity, View } from "react-native";
 
 const Index = () => {
-  const { data, hasNextPage, fetchNextPage } = usePokemons();
-  const allPokemons = data?.pages?.flatMap((page) => page.pokemons) || [];
+  const router = useRouter();
+  const queryClient = useQueryClient();
+
+  const { pokemons, hasNextPage, fetchNextPage } = usePokemons();
+
   return (
     <View>
+      <Button
+        title="Clear"
+        onPress={async () =>
+          await queryClient.resetQueries({ queryKey: ["pokemons"] })
+        }
+      />
       <Text>Pokemons list</Text>
       <FlatList
-        data={allPokemons}
+        data={pokemons}
         keyExtractor={(_, i) => i.toString()}
-        renderItem={({ item }) => <PokemonListItem pokemon={item} />}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            onPress={() => {
+              router.push({
+                pathname: "/pokemon-modal",
+                params: { pokemonId: item.id },
+              });
+              console.log(`Pressed pokemon ${item.name}`);
+            }}
+          >
+            <PokemonListItem pokemon={item} />
+          </TouchableOpacity>
+        )}
         onEndReached={() => {
           if (hasNextPage) fetchNextPage();
         }}

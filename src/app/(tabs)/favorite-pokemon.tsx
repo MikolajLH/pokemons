@@ -1,9 +1,20 @@
+import PokemonCard from "@/src/components/PokemonCard";
+import { useFavoritePokemonStore } from "@/src/store/useFavoritePokemonStore";
 import { Text, View } from "react-native";
 
 const FavoritePokemon = () => {
+  const favoritePokemon = useFavoritePokemonStore().favoritePokemon;
+
+  if (!favoritePokemon) {
+    return (
+      <View>
+        <Text>No favorite pokemon</Text>
+      </View>
+    );
+  }
   return (
     <View>
-      <Text>FavoritePokemon screen</Text>
+      <PokemonCard pokemon={favoritePokemon} />
     </View>
   );
 };

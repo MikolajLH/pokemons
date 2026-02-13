@@ -16,8 +16,10 @@ export const usePokemons = () => {
     initialPageParam: "https://pokeapi.co/api/v2/pokemon/?offset=0&limit=20",
     getNextPageParam: (lastPage) => lastPage.next,
   });
+  const allPokemons = data?.pages?.flatMap((page) => page.pokemons) || [];
 
   return {
+    pokemons: allPokemons,
     data,
     error,
     fetchNextPage,
