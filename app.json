@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.testAAA.pokemons"
+      "bundleIdentifier": "com.mikolaj.pokemons"
     },
     "android": {
       "adaptiveIcon": {
@@ -21,7 +21,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.testAAA.pokemons"
+      "package": "com.mikolaj.pokemons"
     },
     "web": {
       "output": "static",
@@ -45,6 +45,14 @@
         "react-native-vision-camera",
         {
           "cameraPermissionText": "$(PRODUCT_NAME) needs access to your Camera."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "15.5"
+          }
         }
       ]
     ],

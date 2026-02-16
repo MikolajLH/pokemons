@@ -24,7 +24,7 @@ const FaceDetection = () => {
   const pokemon = useFavoritePokemonStore().favoritePokemon;
 
   const { width, height } = useWindowDimensions();
-  const { hasPermission, requestPermission } = useCameraPermission();
+  const { hasPermission } = useCameraPermission();
 
   const faceDetectionOptions = useRef<FrameFaceDetectionOptions>({
     performanceMode: "fast",
