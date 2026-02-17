@@ -1,6 +1,6 @@
 import { PermissionsPage } from "@/src/pages/PermissionsPage";
 import { useFavoritePokemonStore } from "@/src/store/useFavoritePokemonStore";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Animated, {
   useAnimatedStyle,
@@ -19,6 +19,8 @@ import {
   Face,
   FrameFaceDetectionOptions,
 } from "react-native-vision-camera-face-detector";
+
+import { default as MyCamera } from "@/src/components/Camera";
 
 const FaceDetection = () => {
   const pokemon = useFavoritePokemonStore().favoritePokemon;
@@ -148,6 +150,12 @@ const FaceDetection = () => {
 };
 
 const CameraScreen = () => {
+  useEffect(() => {
+    console.log("HERE");
+    const devices = VisionCamera.getAvailableCameraDevices();
+    console.log("Available Devices:", JSON.stringify(devices, null, 2));
+  }, []);
+
   const device = useCameraDevice("front");
 
   const { hasPermission } = useCameraPermission();
@@ -158,12 +166,13 @@ const CameraScreen = () => {
   if (!device) {
     return (
       <View>
-        <Text>No camera device found</Text>
+        <Text>No camera device</Text>
       </View>
     );
   }
+  const test = true;
 
-  return <FaceDetection />;
+  return test ? <MyCamera /> : <FaceDetection />;
 };
 
 export default CameraScreen;
