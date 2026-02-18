@@ -1,5 +1,5 @@
 import { useIsFocused } from "@react-navigation/native";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Image,
   StatusBar,
@@ -31,23 +31,33 @@ import {
 import ViewShot from "react-native-view-shot";
 
 import * as MediaLibrary from "expo-media-library";
+import { useComponentRect } from "../hooks/useComponentRect";
+import { useFavoritePokemonStore } from "../store/useFavoritePokemonStore";
 
 const Camera = () => {
-  const { width, height } = useWindowDimensions();
-  const faceDetectionOptions = useRef<FrameFaceDetectionOptions>({
-    performanceMode: "fast",
-    classificationMode: "none",
-    contourMode: "none",
-    landmarkMode: "none",
-    windowWidth: width,
-    windowHeight: height,
-    autoMode: true,
-  }).current;
+  const pokemon = useFavoritePokemonStore().favoritePokemon;
+  //const { width, height } = useWindowDimensions();
+  const { rect, onLayout } = useComponentRect();
+  const faceDetectionOptions: FrameFaceDetectionOptions = useMemo(
+    () => ({
+      performanceMode: "fast",
+      classificationMode: "none",
+      contourMode: "none",
+      landmarkMode: "none",
+      windowWidth: rect?.width ?? 1,
+      windowHeight: rect?.height ?? 1,
+      autoMode: true,
+    }),
+    [rect],
+  );
 
   const faceX = useSharedValue<number>(0);
   const faceY = useSharedValue<number>(0);
   const faceW = useSharedValue<number>(0);
   const faceH = useSharedValue<number>(0);
+  const faceCenterX = useDerivedValue(
+    () => faceX.value + faceW.value * 0.5 - 50,
+  );
 
   const boundingBoxStyle = useAnimatedStyle(() => ({
     position: "absolute",
@@ -84,32 +94,10 @@ const Camera = () => {
     faceH.value = height;
 
     //console.log("faces", faces.length, `(${x.toFixed(2)}, ${y.toFixed(2)})`);
+    //console.log("rect:", JSON.stringify(rect));
   };
 
-  //const [processingPictureSave, setProcessingPictureSave] = useState(false);
-
   const [pictureTempPath, setPictureTempPath] = useState<string | null>(null);
-
-  // const onCapture = useCallback(async () => {
-  //   if (viewShotRef.current) {
-  //     try {
-  //       const vs = viewShotRef.current;
-  //       const cap = vs.capture;
-  //       if (cap) {
-  //         const uri = await cap();
-  //         const { status } = await MediaLibrary.requestPermissionsAsync();
-  //         if (status === "granted") {
-  //           const asset = await MediaLibrary.createAssetAsync(uri);
-  //           console.log("saved to gallery", asset.filename);
-  //         }
-  //       }
-  //     } catch (err) {
-  //       console.error("failed in saving the image", err);
-  //     } finally {
-  //       setPictureTempPath(null);
-  //     }
-  //   }
-  // }, []);
 
   const onCapture = async () => {
     console.log("onCapture");
@@ -159,9 +147,9 @@ const Camera = () => {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} onLayout={onLayout}>
       <StatusBar barStyle="light-content" />
-      {!pictureTempPath ? (
+      {rect && (
         <>
           <FaceDetectorCamera
             ref={camera}
@@ -173,6 +161,18 @@ const Camera = () => {
             photo={true}
           />
           <Animated.View style={boundingBoxStyle} />
+          {pokemon && (
+            <Animated.Image
+              source={{ uri: pokemon.sprite_uri }}
+              style={{
+                position: "absolute",
+                top: faceY,
+                left: faceCenterX,
+                width: 100,
+                height: 100,
+              }}
+            />
+          )}
 
           <View style={styles.controlsContainer}>
             <TouchableOpacity
@@ -184,22 +184,37 @@ const Camera = () => {
             </TouchableOpacity>
           </View>
         </>
-      ) : (
-        <ViewShot
-          ref={viewShotRef}
-          options={{
-            format: "jpg",
-            quality: 0.9,
-          }}
-          style={styles.viewShotContainer}
-        >
-          <Image
-            source={{ uri: pictureTempPath }}
-            style={{ width: "100%", height: "100%" }}
-            onLoad={onCapture}
-          />
-          <Animated.View style={boundingBoxStyle} />
-        </ViewShot>
+      )}
+      {pictureTempPath && (
+        <View style={[{ zIndex: 10 }, StyleSheet.absoluteFill]}>
+          <ViewShot
+            ref={viewShotRef}
+            options={{
+              format: "jpg",
+              quality: 0.9,
+            }}
+            style={styles.viewShotContainer}
+          >
+            <Image
+              source={{ uri: pictureTempPath }}
+              style={{ width: "100%", height: "100%" }}
+              onLoad={onCapture}
+            />
+            <Animated.View style={boundingBoxStyle} />
+            {pokemon && (
+              <Animated.Image
+                source={{ uri: pokemon.sprite_uri }}
+                style={{
+                  position: "absolute",
+                  top: faceY,
+                  left: faceCenterX,
+                  width: 100,
+                  height: 100,
+                }}
+              />
+            )}
+          </ViewShot>
+        </View>
       )}
     </View>
   );
@@ -224,7 +239,8 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     flex: 1,
-    backgroundColor: "yellow",
+    backgroundColor: "white",
+    opacity: 90,
     justifyContent: "center",
     alignItems: "center",
   },
