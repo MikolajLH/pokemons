@@ -180,8 +180,8 @@ const Camera = () => {
           />
           {pokemon && (
             <PokemonOverlay
-              animatedStyle={pokemonOverlayStyle}
               boundingBoxStyle={boundingBoxStyle}
+              animatedStyle={pokemonOverlayStyle}
               pokemon={pokemon}
             />
           )}
