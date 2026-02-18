@@ -1,19 +1,10 @@
 import { useIsFocused } from "@react-navigation/native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import {
-  Image,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  useWindowDimensions,
-  View,
-} from "react-native";
-import Animated, {
   useAnimatedStyle,
   useDerivedValue,
   useSharedValue,
-  withTiming,
 } from "react-native-reanimated";
 import {
   Frame,
@@ -33,22 +24,39 @@ import ViewShot from "react-native-view-shot";
 import * as MediaLibrary from "expo-media-library";
 import { useComponentRect } from "../hooks/useComponentRect";
 import { useFavoritePokemonStore } from "../store/useFavoritePokemonStore";
+import PokemonOverlay from "./PokemonOverlay";
 
 const Camera = () => {
+  const [mediaPermission, requestMediaPermission] =
+    MediaLibrary.usePermissions();
+  const {
+    hasPermission: cameraPermission,
+    requestPermission: requestCameraPermission,
+  } = useCameraPermission();
+
+  useEffect(() => {
+    if (!cameraPermission) requestCameraPermission();
+    if (!mediaPermission) requestMediaPermission();
+  }, [
+    cameraPermission,
+    requestCameraPermission,
+    mediaPermission,
+    requestMediaPermission,
+  ]);
+
   const pokemon = useFavoritePokemonStore().favoritePokemon;
-  //const { width, height } = useWindowDimensions();
-  const { rect, onLayout } = useComponentRect();
+  const { rect: cameraRect, onLayout: onCameraLayout } = useComponentRect();
   const faceDetectionOptions: FrameFaceDetectionOptions = useMemo(
     () => ({
       performanceMode: "fast",
       classificationMode: "none",
       contourMode: "none",
       landmarkMode: "none",
-      windowWidth: rect?.width ?? 1,
-      windowHeight: rect?.height ?? 1,
+      windowWidth: cameraRect?.width ?? 1,
+      windowHeight: cameraRect?.height ?? 1,
       autoMode: true,
     }),
-    [rect],
+    [cameraRect],
   );
 
   const faceX = useSharedValue<number>(0);
@@ -56,7 +64,7 @@ const Camera = () => {
   const faceW = useSharedValue<number>(0);
   const faceH = useSharedValue<number>(0);
   const faceCenterX = useDerivedValue(
-    () => faceX.value + faceW.value * 0.5 - 50,
+    () => faceX.value + faceW.value * 0.5 - faceW.value * 0.25,
   );
 
   const boundingBoxStyle = useAnimatedStyle(() => ({
@@ -72,10 +80,16 @@ const Camera = () => {
     height: faceH.value,
   }));
 
-  const isFocused = useIsFocused();
+  const pokemonOverlayStyle = useAnimatedStyle(() => ({
+    position: "absolute",
+    top: faceY.value,
+    left: faceCenterX.value,
+    width: faceW.value * 0.5,
+    height: faceH.value * 0.5,
+  }));
 
+  const isFocused = useIsFocused();
   const device = useCameraDevice("front");
-  const { hasPermission } = useCameraPermission();
   const camera = useRef<VisionCamera>(null);
   const viewShotRef = useRef<ViewShot>(null);
 
@@ -99,7 +113,7 @@ const Camera = () => {
 
   const [pictureTempPath, setPictureTempPath] = useState<string | null>(null);
 
-  const onCapture = async () => {
+  const onCapture = useCallback(async () => {
     console.log("onCapture");
     if (pictureTempPath && viewShotRef.current) {
       try {
@@ -107,11 +121,8 @@ const Camera = () => {
         const cap = vs.capture;
         if (cap) {
           const uri = await cap();
-          const { status } = await MediaLibrary.requestPermissionsAsync();
-          if (status === "granted") {
-            const asset = await MediaLibrary.createAssetAsync(uri);
-            console.log("saved to gallery", asset.filename);
-          }
+          const asset = await MediaLibrary.createAssetAsync(uri);
+          console.log("saved to gallery", asset.filename);
         }
       } catch (err) {
         console.error("failed in saving the image", err);
@@ -119,16 +130,16 @@ const Camera = () => {
         setPictureTempPath(null);
       }
     }
-  };
+  }, [pictureTempPath]);
 
-  const onShutterPressed = async () => {
+  const onShutterPressed = useCallback(async () => {
     console.log("shutter btn pressed");
     if (camera.current) {
       const picture = await camera.current.takePhoto();
       console.log(`saved to temp: ${picture.path}`);
       setPictureTempPath(picture.path);
     }
-  };
+  }, []);
 
   if (!device) {
     return (
@@ -138,7 +149,7 @@ const Camera = () => {
     );
   }
 
-  if (!hasPermission) {
+  if (!cameraPermission) {
     return (
       <View>
         <Text>No camera permission</Text>
@@ -146,10 +157,17 @@ const Camera = () => {
     );
   }
 
+  if (!mediaPermission) {
+    return (
+      <View>
+        <Text>No media permission</Text>
+      </View>
+    );
+  }
+
   return (
-    <View style={styles.container} onLayout={onLayout}>
-      <StatusBar barStyle="light-content" />
-      {rect && (
+    <View style={styles.container} onLayout={onCameraLayout}>
+      {cameraRect && (
         <>
           <FaceDetectorCamera
             ref={camera}
@@ -160,17 +178,11 @@ const Camera = () => {
             faceDetectionOptions={faceDetectionOptions}
             photo={true}
           />
-          <Animated.View style={boundingBoxStyle} />
           {pokemon && (
-            <Animated.Image
-              source={{ uri: pokemon.sprite_uri }}
-              style={{
-                position: "absolute",
-                top: faceY,
-                left: faceCenterX,
-                width: 100,
-                height: 100,
-              }}
+            <PokemonOverlay
+              animatedStyle={pokemonOverlayStyle}
+              boundingBoxStyle={boundingBoxStyle}
+              pokemon={pokemon}
             />
           )}
 
@@ -200,17 +212,10 @@ const Camera = () => {
               style={{ width: "100%", height: "100%" }}
               onLoad={onCapture}
             />
-            <Animated.View style={boundingBoxStyle} />
             {pokemon && (
-              <Animated.Image
-                source={{ uri: pokemon.sprite_uri }}
-                style={{
-                  position: "absolute",
-                  top: faceY,
-                  left: faceCenterX,
-                  width: 100,
-                  height: 100,
-                }}
+              <PokemonOverlay
+                animatedStyle={pokemonOverlayStyle}
+                pokemon={pokemon}
               />
             )}
           </ViewShot>
