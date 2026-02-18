@@ -1,67 +1,38 @@
 import { useIsFocused } from "@react-navigation/native";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    useWindowDimensions,
-    View,
+  Image,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import Animated, {
-    useAnimatedStyle,
-    useDerivedValue,
-    useSharedValue,
-    withTiming,
+  useAnimatedStyle,
+  useDerivedValue,
+  useSharedValue,
+  withTiming,
 } from "react-native-reanimated";
 import {
-    Frame,
-    useCameraDevice,
-    useCameraPermission,
-    Camera as VisionCamera,
+  Frame,
+  useCameraDevice,
+  useCameraPermission,
+  Camera as VisionCamera,
 } from "react-native-vision-camera";
 
 import {
-    Face,
-    Camera as FaceDetectorCamera,
-    FrameFaceDetectionOptions,
+  Face,
+  Camera as FaceDetectorCamera,
+  FrameFaceDetectionOptions,
 } from "react-native-vision-camera-face-detector";
 
+import ViewShot from "react-native-view-shot";
+
+import * as MediaLibrary from "expo-media-library";
+
 const Camera = () => {
-  const aFaceW = useSharedValue(0);
-  const aFaceH = useSharedValue(0);
-  const aFaceX = useSharedValue(0);
-  const aFaceY = useSharedValue(0);
-
-  const lEyeX = useSharedValue(0);
-  const lEyeY = useSharedValue(0);
-  const rEyeX = useSharedValue(0);
-  const rEyeY = useSharedValue(0);
-  const eyesSpace = useDerivedValue(() => Math.abs(lEyeX.value - rEyeX.value));
-
-  const [faceExists, setFaceExists] = useState(false);
-
-  const boundingBoxStyle = useAnimatedStyle(() => ({
-    position: "absolute",
-    borderWidth: 4,
-    borderLeftColor: "rgb(0,255,0)",
-    borderRightColor: "rgb(0,255,0)",
-    borderBottomColor: "rgb(0,255,0)",
-    borderTopColor: "rgb(255,0,0)",
-    width: withTiming(aFaceW.value, {
-      duration: 100,
-    }),
-    height: withTiming(aFaceH.value, {
-      duration: 100,
-    }),
-    left: withTiming(aFaceX.value, {
-      duration: 100,
-    }),
-    top: withTiming(aFaceY.value, {
-      duration: 100,
-    }),
-  }));
-
   const { width, height } = useWindowDimensions();
   const faceDetectionOptions = useRef<FrameFaceDetectionOptions>({
     performanceMode: "fast",
@@ -73,60 +44,103 @@ const Camera = () => {
     autoMode: true,
   }).current;
 
-  const device = useCameraDevice("front");
-  const { hasPermission, requestPermission } = useCameraPermission();
-  const camera = useRef<VisionCamera>(null);
+  const faceX = useSharedValue<number>(0);
+  const faceY = useSharedValue<number>(0);
+  const faceW = useSharedValue<number>(0);
+  const faceH = useSharedValue<number>(0);
+
+  const boundingBoxStyle = useAnimatedStyle(() => ({
+    position: "absolute",
+    borderWidth: 4,
+    borderLeftColor: "rgb(0,255,0)",
+    borderRightColor: "rgb(0,255,0)",
+    borderBottomColor: "rgb(0,255,0)",
+    borderTopColor: "rgb(255,0,0)",
+    top: faceY.value,
+    left: faceX.value,
+    width: faceW.value,
+    height: faceH.value,
+  }));
 
   const isFocused = useIsFocused();
 
-  useEffect(() => {
-    if (!hasPermission) {
-      requestPermission();
-    }
-  }, [hasPermission]);
+  const device = useCameraDevice("front");
+  const { hasPermission } = useCameraPermission();
+  const camera = useRef<VisionCamera>(null);
+  const viewShotRef = useRef<ViewShot>(null);
 
   const handleFaceDetected = (faces: Face[], frame: Frame) => {
     if (faces.length <= 0) {
-      aFaceW.value = 0;
-      aFaceH.value = 0;
-      aFaceX.value = 0;
-      aFaceY.value = 0;
-      setFaceExists(false);
+      faceX.value = 0;
+      faceY.value = 0;
+      faceW.value = 0;
+      faceH.value = 0;
       return;
     }
-    setFaceExists(true);
+    const { width, height, x, y } = faces[0].bounds;
+    faceX.value = x;
+    faceY.value = y;
+    faceW.value = width;
+    faceH.value = height;
 
-    const face = faces[0];
-    const lEye = face.landmarks?.LEFT_EYE ?? null;
-    const rEye = face.landmarks?.LEFT_EYE ?? null;
-
-    if (lEye) {
-      lEyeX.value = lEye.x;
-      lEyeY.value = lEye.y;
-    }
-
-    if (rEye) {
-      rEyeX.value = rEye.x;
-      rEyeY.value = rEye.y;
-    }
-
-    const { bounds } = faces[0];
-    const { width, height, x, y } = bounds;
-    aFaceW.value = width;
-    aFaceH.value = height;
-    aFaceX.value = x;
-    aFaceY.value = y;
-
-    console.log("faces", faces.length, `(${x.toFixed(2)}, ${y.toFixed(2)})`);
+    //console.log("faces", faces.length, `(${x.toFixed(2)}, ${y.toFixed(2)})`);
   };
 
-  if (!hasPermission) {
-    return (
-      <View>
-        <Text>No camera permission</Text>
-      </View>
-    );
-  }
+  //const [processingPictureSave, setProcessingPictureSave] = useState(false);
+
+  const [pictureTempPath, setPictureTempPath] = useState<string | null>(null);
+
+  // const onCapture = useCallback(async () => {
+  //   if (viewShotRef.current) {
+  //     try {
+  //       const vs = viewShotRef.current;
+  //       const cap = vs.capture;
+  //       if (cap) {
+  //         const uri = await cap();
+  //         const { status } = await MediaLibrary.requestPermissionsAsync();
+  //         if (status === "granted") {
+  //           const asset = await MediaLibrary.createAssetAsync(uri);
+  //           console.log("saved to gallery", asset.filename);
+  //         }
+  //       }
+  //     } catch (err) {
+  //       console.error("failed in saving the image", err);
+  //     } finally {
+  //       setPictureTempPath(null);
+  //     }
+  //   }
+  // }, []);
+
+  const onCapture = async () => {
+    console.log("onCapture");
+    if (pictureTempPath && viewShotRef.current) {
+      try {
+        const vs = viewShotRef.current;
+        const cap = vs.capture;
+        if (cap) {
+          const uri = await cap();
+          const { status } = await MediaLibrary.requestPermissionsAsync();
+          if (status === "granted") {
+            const asset = await MediaLibrary.createAssetAsync(uri);
+            console.log("saved to gallery", asset.filename);
+          }
+        }
+      } catch (err) {
+        console.error("failed in saving the image", err);
+      } finally {
+        setPictureTempPath(null);
+      }
+    }
+  };
+
+  const onShutterPressed = async () => {
+    console.log("shutter btn pressed");
+    if (camera.current) {
+      const picture = await camera.current.takePhoto();
+      console.log(`saved to temp: ${picture.path}`);
+      setPictureTempPath(picture.path);
+    }
+  };
 
   if (!device) {
     return (
@@ -136,49 +150,60 @@ const Camera = () => {
     );
   }
 
+  if (!hasPermission) {
+    return (
+      <View>
+        <Text>No camera permission</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
-      <FaceDetectorCamera
-        ref={camera}
-        style={StyleSheet.absoluteFill}
-        device={device}
-        isActive={isFocused}
-        faceDetectionCallback={handleFaceDetected}
-        faceDetectionOptions={faceDetectionOptions}
-      />
-      <Animated.View style={boundingBoxStyle} />
-      <Animated.View
-        style={{
-          top: 0,
-          left: 0,
-          ...styles.rect,
-        }}
-      />
-      <Animated.View
-        style={{
-          top: lEyeY,
-          left: lEyeX,
-          width: eyesSpace,
-          height: 10,
-          borderWidth: 5,
-          borderColor: "green",
-        }}
-      />
-      <View style={styles.controlsContainer}>
-        <TouchableOpacity
-          style={styles.shutterBtnOuter}
-          onPress={() => console.log("shutter btn pressed")}
-          activeOpacity={0.7}
+      {!pictureTempPath ? (
+        <>
+          <FaceDetectorCamera
+            ref={camera}
+            style={StyleSheet.absoluteFill}
+            device={device}
+            isActive={isFocused}
+            faceDetectionCallback={handleFaceDetected}
+            faceDetectionOptions={faceDetectionOptions}
+            photo={true}
+          />
+          <Animated.View style={boundingBoxStyle} />
+
+          <View style={styles.controlsContainer}>
+            <TouchableOpacity
+              style={styles.shutterBtnOuter}
+              onPress={onShutterPressed}
+              activeOpacity={0.7}
+            >
+              <View style={styles.shutterBtnInner} />
+            </TouchableOpacity>
+          </View>
+        </>
+      ) : (
+        <ViewShot
+          ref={viewShotRef}
+          options={{
+            format: "jpg",
+            quality: 0.9,
+          }}
+          style={styles.viewShotContainer}
         >
-          <View style={styles.shutterBtnInner} />
-        </TouchableOpacity>
-      </View>
+          <Image
+            source={{ uri: pictureTempPath }}
+            style={{ width: "100%", height: "100%" }}
+            onLoad={onCapture}
+          />
+          <Animated.View style={boundingBoxStyle} />
+        </ViewShot>
+      )}
     </View>
   );
 };
-
-export default Camera;
 
 const styles = StyleSheet.create({
   rect: {
@@ -192,6 +217,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "blue",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  viewShotContainer: {
+    width: "100%",
+    height: "100%",
+    flex: 1,
+    backgroundColor: "yellow",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -218,3 +251,5 @@ const styles = StyleSheet.create({
     backgroundColor: "white",
   },
 });
+
+export default Camera;

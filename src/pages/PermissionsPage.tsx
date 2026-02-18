@@ -14,13 +14,16 @@ export const PermissionsPage = () => {
     const permission = await Camera.requestCameraPermission();
     console.log(`Camera permission status: ${permission}`);
 
+    const devices = Camera.getAvailableCameraDevices();
+    console.log("devices:", JSON.stringify(devices, null, 2));
+
     if (permission === "denied") await Linking.openSettings();
     setCameraPermissionStatus(permission);
   }, []);
 
   useEffect(() => {
     if (cameraPermissionStatus === "granted") router.navigate("/(tabs)/camera");
-  }, [cameraPermissionStatus]);
+  }, [cameraPermissionStatus, router]);
 
   return (
     <View style={styles.container}>

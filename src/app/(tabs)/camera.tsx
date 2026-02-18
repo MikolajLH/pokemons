@@ -151,9 +151,8 @@ const FaceDetection = () => {
 
 const CameraScreen = () => {
   useEffect(() => {
-    console.log("HERE");
     const devices = VisionCamera.getAvailableCameraDevices();
-    console.log("Available Devices:", JSON.stringify(devices, null, 2));
+    console.log("devices:", JSON.stringify(devices, null, 2));
   }, []);
 
   const device = useCameraDevice("front");
@@ -171,7 +170,6 @@ const CameraScreen = () => {
     );
   }
   const test = true;
-
   return test ? <MyCamera /> : <FaceDetection />;
 };
 
